@@ -1,0 +1,14 @@
+{
+  "name": "cosmic-drift",
+  "version": "1.0.0",
+  "description": "Space-themed absorption game",
+  "scripts": {
+    "dev": "live-server --port=3000 --open=index.html"
+  },
+  "keywords": ["game", "canvas", "space"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}

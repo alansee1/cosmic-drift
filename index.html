@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Drift - Navigate the Cosmos</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <h1>🌌 Cosmic Drift</h1>
+            <div class="stats">
+                <div class="stat">Mass: <span id="score">0</span></div>
+                <div class="stat">Radius: <span id="size">1</span></div>
+                <div class="stat">Speed: <span id="speed">0.0</span></div>
+                <div class="stat">Zoom: <span id="zoomLevel">1.0x</span></div>
+                <div class="stat" id="boostStatus">Boost: <span id="boostText">Ready</span></div>
+            </div>
+        </div>
+
+        <div id="leaderboard" class="leaderboard">
+            <div class="leaderboard-title">Top 5 Largest Bodies</div>
+            <div id="leaderboardList"></div>
+        </div>
+
+        <div id="activityFeed" class="activity-feed">
+            <div class="activity-title">Activity Feed</div>
+            <div id="activityList"></div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="startScreen" class="screen">
+            <h2>Welcome to Cosmic Drift!</h2>
+            <p>🎮 WASD or Arrow Keys to navigate through space</p>
+            <p>⚡ SPACEBAR to boost (3s cooldown)</p>
+            <p>🔍 R/T keys to zoom out/in</p>
+            <p>🍽️ Absorb smaller celestial bodies to grow</p>
+
+            <div class="mode-selection">
+                <h3>Select Game Mode</h3>
+                <div class="mode-cards">
+                    <div class="mode-card active" data-mode="battleRoyale">
+                        <div class="mode-title">⚔️ Battle Royale</div>
+                        <div class="mode-description">Last planet standing wins. Map shrinks over time!</div>
+                    </div>
+                    <div class="mode-card" data-mode="survival">
+                        <div class="mode-title">🛡️ Survival</div>
+                        <div class="mode-description">Survive endless waves! AI can spawn at any size.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-panel">
+                <button id="toggleSettings" class="settings-toggle">⚙️ Advanced Settings</button>
+                <div id="advancedSettings" class="settings-content hidden">
+                    <div class="settings-section">
+                        <h4 class="settings-section-title">General Settings</h4>
+                        <div class="setting-item">
+                            <label>Gravity Strength: <span id="gravityValue">1.2</span></label>
+                            <input type="range" id="gravitySlider" min="0.3" max="6.0" step="0.1" value="1.2">
+                            <div class="setting-hint">Lower = floaty physics, Higher = EXTREME pull (food orbits, danger zones!)</div>
+                        </div>
+                        <div class="setting-item">
+                            <label>Boost Power: <span id="boostValue">0.5</span></label>
+                            <input type="range" id="boostSlider" min="0.3" max="1.5" step="0.1" value="0.5">
+                            <div class="setting-hint">Acceleration multiplier during boost</div>
+                        </div>
+                        <div class="setting-item">
+                            <label>AI Aggression: <span id="aggressionValue">1.0x</span></label>
+                            <input type="range" id="aggressionSlider" min="0.5" max="2.0" step="0.1" value="1.0">
+                            <div class="setting-hint">Hunting/fleeing speed multiplier</div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section mode-specific" id="battleRoyaleSettings" data-mode="battleRoyale">
+                        <h4 class="settings-section-title">⚔️ Battle Royale Settings</h4>
+                        <div class="setting-item">
+                            <label>Food Count: <span id="foodValue">150</span></label>
+                            <input type="range" id="foodSlider" min="50" max="400" step="10" value="150">
+                            <div class="setting-hint">Number of food particles at game start</div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section mode-specific hidden" id="survivalSettings" data-mode="survival">
+                        <h4 class="settings-section-title">🛡️ Survival Settings</h4>
+                        <div class="setting-item">
+                            <label>AI Spawn Rate: <span id="spawnRateValue">4.0s</span></label>
+                            <input type="range" id="spawnRateSlider" min="2000" max="8000" step="500" value="4000">
+                            <div class="setting-hint">How often new AI planets spawn</div>
+                        </div>
+                        <div class="setting-item">
+                            <label>Food Count: <span id="survivalFoodValue">200</span></label>
+                            <input type="range" id="survivalFoodSlider" min="100" max="500" step="10" value="200">
+                            <div class="setting-hint">Number of food particles at game start</div>
+                        </div>
+                    </div>
+
+                    <button id="resetSettings" class="reset-btn">Reset to Default</button>
+                </div>
+            </div>
+
+            <button id="startBtn">Begin Journey</button>
+        </div>
+
+        <div id="gameOverScreen" class="screen hidden">
+            <h2>Consumed by the Cosmos!</h2>
+            <p>Total Mass Absorbed: <span id="finalScore">0</span></p>
+            <p>Final Radius: <span id="finalSize">0</span></p>
+            <p id="survivalTimeDisplay" class="hidden">Time Survived: <span id="survivalTime">0</span></p>
+            <div class="button-group">
+                <button id="restartBtn">Play Again</button>
+                <button id="mainMenuBtn" class="secondary-btn">Main Menu</button>
+            </div>
+        </div>
+
+        <div id="victoryScreen" class="screen hidden">
+            <h2>🏆 Victory! 🏆</h2>
+            <h3>Last Planet Standing!</h3>
+            <p>Total Mass Absorbed: <span id="victoryScore">0</span></p>
+            <p>Final Radius: <span id="victorySize">0</span></p>
+            <p class="victory-message">You have conquered the cosmos!</p>
+            <div class="button-group">
+                <button id="victoryRestartBtn">Play Again</button>
+                <button id="victoryMainMenuBtn" class="secondary-btn">Main Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>

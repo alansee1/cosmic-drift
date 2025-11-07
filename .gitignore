@@ -1,0 +1,12 @@
+# Development diary - local context for Claude
+dev_diary/
+
+# Dependencies
+node_modules/
+
+# macOS
+.DS_Store
+
+# Environment variables
+.env
+.env.local
