@@ -36,12 +36,33 @@ const CONFIG = {
     foodCount: 150, // Number of food particles in the world
     foodSize: 4, // Size of food particles
     foodGrowth: 0.5, // How much you grow when eating food
+    foodFriction: 0.98, // Friction for food particles
+    foodMaxSpeed: 3, // Maximum speed for food particles
     // Shrinking map settings (battle royale!)
     shrinkDelay: 30000, // Start shrinking after 30 seconds
     shrinkInterval: 5000, // Shrink every 5 seconds
     shrinkAmount: 200, // Reduce radius by this much each shrink
     minPlayableRadius: 300, // Minimum playable area
-    boundaryDamage: 0.5 // Size loss per second outside boundary
+    boundaryDamage: 0.5, // Size loss per second outside boundary
+    boundaryDamagePerFrame: 0.016, // Boundary damage per frame (~60fps: 0.5/60 ≈ 0.016)
+    // AI behavior thresholds
+    threatSizeMultiplier: 1.1, // AI considers bodies 1.1x larger as threats
+    preySizeMultiplier: 0.9, // AI considers bodies 0.9x smaller as prey
+    diagonalMovementNormalizer: 0.707, // Normalize diagonal movement (Math.SQRT1_2)
+    boundaryAvoidanceDistance: 200, // Distance from boundary where AI starts avoiding
+    boundaryAvoidanceMultiplier: 1.5, // Extra avoidance force near boundary
+    // Collision and physics
+    collisionSizeRatio: 0.8, // Collision detection ratio (bodies overlap at 80% of combined size)
+    mutualAbsorptionRatio: 0.5, // Growth rate when AI bodies eat each other (50% of normal)
+    // Victory conditions
+    maxPlayerSize: 1800, // Player wins when radius reaches this size
+    // Boost visual effects
+    boostGravityMultiplier: 3, // Gravity is 3x stronger during boost
+    boostRingSize: 2, // Outer ring size multiplier during boost
+    boostInnerRingSize: 1.5, // Inner ring size multiplier during boost
+    // Camera settings
+    minZoom: 0.35, // Minimum zoom level
+    maxZoom: 2.0 // Maximum zoom level
 };
 
 // Game Modes Configuration
@@ -244,8 +265,8 @@ class CelestialBody {
 
             // Normalize diagonal movement
             if (ax !== 0 && ay !== 0) {
-                ax *= 0.707; // 1/sqrt(2)
-                ay *= 0.707;
+                ax *= CONFIG.diagonalMovementNormalizer; // Normalize diagonal movement
+                ay *= CONFIG.diagonalMovementNormalizer;
             }
 
             // Apply acceleration (extra boost if active)
@@ -274,7 +295,7 @@ class CelestialBody {
 
                     // Triple gravity impact when boost is active (risky!)
                     if (game.boostActive) {
-                        force *= 3;
+                        force *= CONFIG.boostGravityMultiplier;
                     }
 
                     // Calculate force components
@@ -315,13 +336,13 @@ class CelestialBody {
             const dx = this.x - game.playableArea.centerX;
             const dy = this.y - game.playableArea.centerY;
             const distanceFromCenter = Math.sqrt(dx * dx + dy * dy);
-            const dangerZone = game.playableArea.radius - 200; // Start avoiding when close
+            const dangerZone = game.playableArea.radius - CONFIG.boundaryAvoidanceDistance;
 
             if (distanceFromCenter > dangerZone) {
                 // Move toward center to avoid boundary
                 const angle = Math.atan2(dy, dx);
-                this.vx -= Math.cos(angle) * CONFIG.fleeAcceleration * 1.5; // Extra strong avoidance
-                this.vy -= Math.sin(angle) * CONFIG.fleeAcceleration * 1.5;
+                this.vx -= Math.cos(angle) * CONFIG.fleeAcceleration * CONFIG.boundaryAvoidanceMultiplier;
+                this.vy -= Math.sin(angle) * CONFIG.fleeAcceleration * CONFIG.boundaryAvoidanceMultiplier;
             }
 
             // SECOND PRIORITY: Look for threats to flee from (larger bodies)
@@ -336,14 +357,14 @@ class CelestialBody {
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
                 // Find closest larger body within flee range
-                if (distance < closestThreatDist && otherBody.size > this.size * 1.1) {
+                if (distance < closestThreatDist && otherBody.size > this.size * CONFIG.threatSizeMultiplier) {
                     closestThreat = otherBody;
                     closestThreatDist = distance;
                 }
             });
 
             // Also consider player as potential threat
-            if (game.player && game.player.size > this.size * 1.1) {
+            if (game.player && game.player.size > this.size * CONFIG.threatSizeMultiplier) {
                 const dx = game.player.x - this.x;
                 const dy = game.player.y - this.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
@@ -388,14 +409,14 @@ class CelestialBody {
                     const distance = Math.sqrt(dx * dx + dy * dy);
 
                     // Find closest smaller body within hunting range
-                    if (distance < closestPreyDist && otherBody.size < this.size * 0.9) {
+                    if (distance < closestPreyDist && otherBody.size < this.size * CONFIG.preySizeMultiplier) {
                         closestPrey = otherBody;
                         closestPreyDist = distance;
                     }
                 });
 
                 // Also consider player as potential prey
-                if (game.player && game.player.size < this.size * 0.9) {
+                if (game.player && game.player.size < this.size * CONFIG.preySizeMultiplier) {
                     const dx = game.player.x - this.x;
                     const dy = game.player.y - this.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -468,7 +489,7 @@ class CelestialBody {
 
                     // Triple gravity impact if player's boost is active
                     if (game.boostActive) {
-                        force *= 3;
+                        force *= CONFIG.boostGravityMultiplier;
                     }
 
                     const forceX = (dx / distance) * force;
@@ -492,7 +513,7 @@ class CelestialBody {
 
                     // Triple gravity impact if the other AI body's boost is active
                     if (otherBody.boostActive) {
-                        force *= 3;
+                        force *= CONFIG.boostGravityMultiplier;
                     }
 
                     const forceX = (dx / distance) * force;
@@ -728,15 +749,24 @@ class CelestialBody {
     }
 }
 
-// Collision Detection
+/**
+ * Checks if two celestial bodies are colliding
+ * @param {CelestialBody} body1 - First celestial body
+ * @param {CelestialBody} body2 - Second celestial body
+ * @returns {boolean} True if bodies are colliding (overlapping by collision ratio)
+ */
 function checkCollision(body1, body2) {
     const dx = body1.x - body2.x;
     const dy = body1.y - body2.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    return distance < (body1.size + body2.size) * 0.8;
+    return distance < (body1.size + body2.size) * CONFIG.collisionSizeRatio;
 }
 
-// Spawn Celestial Body
+/**
+ * Spawns a new AI celestial body in the game world
+ * @param {boolean} [isContinuousSpawn=false] - Whether this is a continuous spawn (survival mode) with different size range
+ * @returns {void}
+ */
 function spawnBody(isContinuousSpawn = false) {
     const modeSettings = GAME_MODES[game.selectedMode].settings;
     let size;
@@ -764,7 +794,10 @@ function spawnBody(isContinuousSpawn = false) {
     game.bodies.push(new CelestialBody(x, y, size));
 }
 
-// Spawn Food Particle
+/**
+ * Spawns a food particle at a random location in the world
+ * @returns {Object} Food particle object with position, velocity, and size properties
+ */
 function spawnFood() {
     return {
         x: Math.random() * CONFIG.worldWidth,
@@ -783,7 +816,11 @@ function initFood() {
     }
 }
 
-// Initialize Game
+/**
+ * Initializes the game, sets up canvas, event listeners, and UI
+ * Called once when the page loads
+ * @returns {void}
+ */
 function init() {
     game.canvas = document.getElementById('gameCanvas');
     game.ctx = game.canvas.getContext('2d');
@@ -947,7 +984,11 @@ function init() {
     });
 }
 
-// Start Game
+/**
+ * Starts a new game with the selected mode and settings
+ * Initializes player, AI bodies, food, and game state
+ * @returns {void}
+ */
 function startGame() {
     // Apply selected game mode settings
     const modeSettings = GAME_MODES[game.selectedMode].settings;
@@ -1036,7 +1077,12 @@ function returnToMainMenu() {
     document.getElementById('startScreen').classList.remove('hidden');
 }
 
-// Update Game State
+/**
+ * Main game update loop - handles all game logic
+ * Updates stars, player, camera, AI bodies, food, collisions, and victory conditions
+ * Called every frame by gameLoop
+ * @returns {void}
+ */
 function update() {
     if (!game.isRunning) return;
 
@@ -1052,17 +1098,15 @@ function update() {
     game.player.update();
 
     // Manual camera zoom controls (R = zoom out, T = zoom in)
-    const minZoom = 0.35; // Maximum zoom out (strategic view without excessive empty space)
-    const maxZoom = 2.0;  // Maximum zoom in
     const zoomSpeed = 0.02; // How fast zoom changes
 
     if (game.keys.r) {
         // Zoom out
-        game.camera.zoom = Math.max(minZoom, game.camera.zoom - zoomSpeed);
+        game.camera.zoom = Math.max(CONFIG.minZoom, game.camera.zoom - zoomSpeed);
     }
     if (game.keys.t) {
         // Zoom in
-        game.camera.zoom = Math.min(maxZoom, game.camera.zoom + zoomSpeed);
+        game.camera.zoom = Math.min(CONFIG.maxZoom, game.camera.zoom + zoomSpeed);
     }
 
     // Update camera to follow player smoothly
@@ -1122,14 +1166,14 @@ function update() {
         });
 
         // Apply friction to food
-        food.vx *= 0.98;
-        food.vy *= 0.98;
+        food.vx *= CONFIG.foodFriction;
+        food.vy *= CONFIG.foodFriction;
 
         // Cap food speed
         const speed = Math.sqrt(food.vx * food.vx + food.vy * food.vy);
-        if (speed > 3) {
-            food.vx = (food.vx / speed) * 3;
-            food.vy = (food.vy / speed) * 3;
+        if (speed > CONFIG.foodMaxSpeed) {
+            food.vx = (food.vx / speed) * CONFIG.foodMaxSpeed;
+            food.vy = (food.vy / speed) * CONFIG.foodMaxSpeed;
         }
 
         // Update food position
@@ -1206,13 +1250,13 @@ function update() {
             if (checkCollision(body1, body2)) {
                 // Bigger body always eats smaller body (same as player logic)
                 if (body1.size > body2.size) {
-                    body1.size += CONFIG.growthRate * 0.5; // Bodies grow slower than player
+                    body1.size += CONFIG.growthRate * CONFIG.mutualAbsorptionRatio; // Bodies grow slower than player
                     addActivityEvent(`🍽️ Planet #${body1.id} ate Planet #${body2.id}!`, false);
                     game.bodies.splice(j, 1);
                     // Update i since we removed an element before it
                     if (j < i) i--;
                 } else if (body2.size > body1.size) {
-                    body2.size += CONFIG.growthRate * 0.5;
+                    body2.size += CONFIG.growthRate * CONFIG.mutualAbsorptionRatio;
                     addActivityEvent(`🍽️ Planet #${body2.id} ate Planet #${body1.id}!`, false);
                     game.bodies.splice(i, 1);
                     break; // body1 is gone, move to next
@@ -1264,7 +1308,7 @@ function update() {
 
         if (distanceFromCenter > game.playableArea.radius) {
             // Apply damage for being outside
-            entity.size -= CONFIG.boundaryDamage * 0.016; // ~60fps
+            entity.size -= CONFIG.boundaryDamage * CONFIG.boundaryDamagePerFrame;
 
             // Snap entity back inside the boundary aggressively
             const angle = Math.atan2(dy, dx);
@@ -1311,8 +1355,8 @@ function update() {
     }
 
     // Check if player has grown too large (become a god!)
-    // Victory when player radius reaches 1800
-    if (game.player.size > 1800 && game.isRunning) {
+    // Victory when player radius reaches maximum size
+    if (game.player.size > CONFIG.maxPlayerSize && game.isRunning) {
         addActivityEvent(`🌟 You've transcended into a cosmic deity!`, true);
         setTimeout(() => {
             victory();
@@ -1339,7 +1383,11 @@ function update() {
     // }
 }
 
-// Render Game
+/**
+ * Renders the game to the canvas
+ * Draws stars, food, AI bodies, player, boundary, and UI overlays
+ * @returns {void}
+ */
 function render() {
     // Don't render if game hasn't started yet
     if (!game.player) return;
@@ -1543,7 +1591,11 @@ function drawMinimap() {
     game.ctx.fillText('Map', minimapX + 5, minimapY + 15);
 }
 
-// Game Loop
+/**
+ * Main game loop using requestAnimationFrame
+ * Calls update and render functions each frame
+ * @returns {void}
+ */
 function gameLoop() {
     update();
     render();
@@ -1603,7 +1655,13 @@ function updateUI() {
     updateLeaderboard();
 }
 
-// Add Activity Event
+/**
+ * Adds an event to the activity feed
+ * Events auto-expire after 10 seconds
+ * @param {string} message - The message to display in the activity feed
+ * @param {boolean} [playerInvolved=false] - Whether the player is involved (for highlighting)
+ * @returns {void}
+ */
 function addActivityEvent(message, playerInvolved = false) {
     const event = {
         message,
@@ -1673,7 +1731,11 @@ function updateLeaderboard() {
     leaderboardList.innerHTML = html || '<div style="text-align: center; color: #666;">No bodies</div>';
 }
 
-// Game Over
+/**
+ * Handles game over state
+ * Stops the game and displays final score and stats
+ * @returns {void}
+ */
 function gameOver() {
     game.isRunning = false;
 
@@ -1694,6 +1756,11 @@ function gameOver() {
     document.getElementById('gameOverScreen').classList.remove('hidden');
 }
 
+/**
+ * Handles victory state
+ * Stops the game and displays victory screen with final stats
+ * @returns {void}
+ */
 function victory() {
     game.isRunning = false;
 
