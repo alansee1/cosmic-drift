@@ -1311,7 +1311,8 @@ function update() {
     }
 
     // Check if player has grown too large (become a god!)
-    if (game.player.size > 150 && game.isRunning) {
+    // Victory when player radius reaches 1800
+    if (game.player.size > 1800 && game.isRunning) {
         addActivityEvent(`🌟 You've transcended into a cosmic deity!`, true);
         setTimeout(() => {
             victory();
