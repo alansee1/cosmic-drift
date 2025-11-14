@@ -19,7 +19,7 @@ Cosmic Drift is a physics-based space game featuring gravitational mechanics, st
 
 ### Objective
 - **Battle Royale**: Be the last planet standing
-- **Survival**: Grow to maximum size (radius 150)
+- **Survival**: Grow to maximum size (radius 1800)
 
 ### Controls
 - **WASD / Arrow Keys**: Move your planet
@@ -59,7 +59,7 @@ The game runs on a local development server at `http://localhost:8080`
 
 ### Survival
 - Focus on growth and reaching maximum size
-- Victory at radius 150
+- Victory at radius 1800
 
 ## Credits
 
