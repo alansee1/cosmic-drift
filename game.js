@@ -60,6 +60,9 @@ const CONFIG = {
     boostGravityMultiplier: 3, // Gravity is 3x stronger during boost
     boostRingSize: 2, // Outer ring size multiplier during boost
     boostInnerRingSize: 1.5, // Inner ring size multiplier during boost
+    // AI boost behavior
+    aiBoostCooldownMultiplier: 1.5, // AI boost cooldown is 1.5x longer than player
+    huntingAccelerationDampener: 0.8, // Reduce hunting acceleration when boosting toward prey
     // Camera settings
     minZoom: 0.35, // Minimum zoom level
     maxZoom: 2.0 // Maximum zoom level
@@ -388,7 +391,7 @@ class CelestialBody {
                     // Activate boost to escape gravity
                     this.boostActive = true;
                     this.boostEndTime = currentTime + CONFIG.boostDuration;
-                    this.boostCooldownEndTime = currentTime + CONFIG.boostCooldown * 1.5; // AI has longer cooldown
+                    this.boostCooldownEndTime = currentTime + CONFIG.boostCooldown * CONFIG.aiBoostCooldownMultiplier;
                 }
 
                 // Accelerate AWAY from threat (boosted if active)
@@ -439,7 +442,7 @@ class CelestialBody {
                         // Activate boost when close to prey
                         this.boostActive = true;
                         this.boostEndTime = currentTime + CONFIG.boostDuration;
-                        this.boostCooldownEndTime = currentTime + CONFIG.boostCooldown * 1.5; // AI has longer cooldown
+                        this.boostCooldownEndTime = currentTime + CONFIG.boostCooldown * CONFIG.aiBoostCooldownMultiplier;
                     }
 
                     // Accelerate toward prey (with boost if active)
@@ -469,8 +472,8 @@ class CelestialBody {
                         const distance = Math.sqrt(dx * dx + dy * dy);
 
                         // Accelerate toward food (slower than hunting)
-                        this.vx += (dx / distance) * (CONFIG.huntingAcceleration * 0.8);
-                        this.vy += (dy / distance) * (CONFIG.huntingAcceleration * 0.8);
+                        this.vx += (dx / distance) * (CONFIG.huntingAcceleration * CONFIG.huntingAccelerationDampener);
+                        this.vy += (dy / distance) * (CONFIG.huntingAcceleration * CONFIG.huntingAccelerationDampener);
                     }
                 }
             }
